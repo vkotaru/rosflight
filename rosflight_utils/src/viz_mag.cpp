@@ -7,7 +7,7 @@ VizMag::VizMag() :
   nh_private_("~")
 {
   // retrieve params
-  
+
   // initialize variables
   mag_sum_ = 0;
   mag_skip_ = 20;
@@ -16,13 +16,13 @@ VizMag::VizMag() :
 
   // Set up Publishers and Subscribers
   mag_sub_ = nh_.subscribe("/magnetometer", 1, &VizMag::magCallback, this);
-  
+
   mag_pub_ = nh_.advertise<geometry_msgs::PoseStamped>( "viz/magnetometer", 1 );
   pts_pub_ = nh_.advertise<visualization_msgs::Marker>( "viz/cloud", 1);
 }
 
 void VizMag::magCallback(const sensor_msgs::MagneticFieldConstPtr &msg)
-{  
+{
   if (mag_throttle_ > mag_skip_)
   {
     // unpack message
@@ -87,13 +87,12 @@ void VizMag::magCallback(const sensor_msgs::MagneticFieldConstPtr &msg)
 }
 
 
-} // namespace rosflight
+} // namespace rosflight_utils
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "viz_mag_node");
-  rosflight::VizMag thing;
+  rosflight_utils::VizMag thing;
   ros::spin();
   return 0;
 }
-
