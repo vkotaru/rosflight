@@ -102,7 +102,7 @@ rosflightIO::rosflightIO()
 
   // request the param list
   mavrosflight_->param.request_params();
-  param_timer_ = nh_.createTimer(ros::Duration(1.0), &rosflightIO::paramTimerCallback, this);
+  param_timer_ = nh_.createTimer(ros::Duration(2.5), &rosflightIO::paramTimerCallback, this);
 
   // request version information
   request_version();

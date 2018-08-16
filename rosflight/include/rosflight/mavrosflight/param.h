@@ -42,6 +42,8 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <cstdint>
+
 namespace mavrosflight
 {
 
@@ -55,10 +57,10 @@ public:
   uint16_t pack_param_set_msg(uint8_t system, uint8_t component, mavlink_message_t *msg,
                               uint8_t target_system, uint8_t target_component);
 
-  std::string getName() const;
-  int getIndex() const;
-  MAV_PARAM_TYPE getType() const;
-  double getValue() const;
+  inline std::string name() const { return name_; }
+  inline int index() const { return index_; }
+  inline MAV_PARAM_TYPE type() const { return type_; }
+  inline double value() const { return value_; }
 
   void requestSet(double value, mavlink_message_t *msg);
   bool handleUpdate(const mavlink_param_value_t &msg);
@@ -71,25 +73,20 @@ private:
   float getRawValue(double value);
   double getCastValue(double value);
 
-  template<typename T>
-  double fromRawValue(float value)
+  union ParamValue
   {
-    T t_value = *(T*) &value;
-    return (double) t_value;
-  }
+    float raw;
 
-  template<typename T>
-  float toRawValue(double value)
-  {
-    T t_value = (T) value;
-    return *(float*) &t_value;
-  }
+    int8_t int8;
+    int16_t int16;
+    int32_t int32;
 
-  template<typename T>
-  double toCastValue(double value)
-  {
-    return (double) ((T) value);
-  }
+    uint8_t uint8;
+    uint16_t uint16;
+    uint32_t uint32;
+
+    float real32;
+  };
 
   MavlinkSerial *serial_;
 

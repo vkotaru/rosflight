@@ -90,7 +90,7 @@ bool ParamManager::get_param_value(std::string name, double *value)
 {
   if (is_param_id(name))
   {
-    *value = params_[name].getValue();
+    *value = params_[name].value();
     return true;
   }
   else
@@ -185,9 +185,9 @@ bool ParamManager::save_to_file(std::string filename)
   {
     yaml << YAML::Flow;
     yaml << YAML::BeginMap;
-    yaml << YAML::Key << "name" << YAML::Value << it->second.getName();
-    yaml << YAML::Key << "type" << YAML::Value << (int) it->second.getType();
-    yaml << YAML::Key << "value" << YAML::Value << it->second.getValue();
+    yaml << YAML::Key << "name" << YAML::Value << it->second.name();
+    yaml << YAML::Key << "type" << YAML::Value << (int) it->second.type();
+    yaml << YAML::Key << "value" << YAML::Value << it->second.value();
     yaml << YAML::EndMap;
   }
   yaml << YAML::EndSeq;
@@ -222,7 +222,7 @@ bool ParamManager::load_from_file(std::string filename)
         if (is_param_id(root[i]["name"].as<std::string>()))
         {
           Param param = params_.find(root[i]["name"].as<std::string>())->second;
-          if ((MAV_PARAM_TYPE) root[i]["type"].as<int>() == param.getType())
+          if ((MAV_PARAM_TYPE) root[i]["type"].as<int>() == param.type())
           {
             set_param_value(root[i]["name"].as<std::string>(), root[i]["value"].as<double>());
           }
@@ -307,7 +307,7 @@ void ParamManager::handle_param_value_msg(const mavlink_message_t &msg)
     }
 
     for (int i = 0; i < listeners_.size(); i++)
-      listeners_[i]->on_new_param_received(name, params_[name].getValue());
+      listeners_[i]->on_new_param_received(name, params_[name].value());
   }
   else // otherwise check if we have new unsaved changes as a result of a param set request
   {
@@ -316,7 +316,7 @@ void ParamManager::handle_param_value_msg(const mavlink_message_t &msg)
       unsaved_changes_ = true;
       for (int i = 0; i < listeners_.size(); i++)
       {
-        listeners_[i]->on_param_value_updated(name, params_[name].getValue());
+        listeners_[i]->on_param_value_updated(name, params_[name].value());
         listeners_[i]->on_params_saved_change(unsaved_changes_);
       }
     }

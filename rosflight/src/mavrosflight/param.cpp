@@ -61,26 +61,6 @@ Param::Param(std::string name, int index, MAV_PARAM_TYPE type, float raw_value)
   init(name, index, type, raw_value);
 }
 
-std::string Param::getName() const
-{
-  return name_;
-}
-
-int Param::getIndex() const
-{
-  return index_;
-}
-
-MAV_PARAM_TYPE Param::getType() const
-{
-  return type_;
-}
-
-double Param::getValue() const
-{
-  return value_;
-}
-
 void Param::requestSet(double value, mavlink_message_t *msg)
 {
   if (value != value_)
@@ -126,28 +106,31 @@ void Param::init(std::string name, int index, MAV_PARAM_TYPE type, float raw_val
 
 void Param::setFromRawValue(float raw_value)
 {
+  ParamValue v;
+  v.raw = raw_value;
+
   switch (type_)
   {
   case MAV_PARAM_TYPE_INT8:
-    value_ = fromRawValue<int8_t>(raw_value);
+    value_ = static_cast<double>(v.int8);
     break;
   case MAV_PARAM_TYPE_INT16:
-    value_ = fromRawValue<int16_t>(raw_value);
+    value_ = static_cast<double>(v.int16);
     break;
   case MAV_PARAM_TYPE_INT32:
-    value_ = fromRawValue<int32_t>(raw_value);
+    value_ = static_cast<double>(v.int32);
     break;
   case MAV_PARAM_TYPE_UINT8:
-    value_ = fromRawValue<uint8_t>(raw_value);
+    value_ = static_cast<double>(v.uint8);
     break;
   case MAV_PARAM_TYPE_UINT16:
-    value_ = fromRawValue<uint16_t>(raw_value);
+    value_ = static_cast<double>(v.uint16);
     break;
   case MAV_PARAM_TYPE_UINT32:
-    value_ = fromRawValue<uint32_t>(raw_value);
+    value_ = static_cast<double>(v.uint32);
     break;
   case MAV_PARAM_TYPE_REAL32:
-    value_ = fromRawValue<float>(raw_value);
+    value_ = static_cast<double>(v.real32);
     break;
   }
 }
@@ -159,34 +142,34 @@ float Param::getRawValue()
 
 float Param::getRawValue(double value)
 {
-  float raw_value;
+  ParamValue v;
 
   switch (type_)
   {
   case MAV_PARAM_TYPE_INT8:
-    raw_value = toRawValue<int8_t>(value);
+    v.int8 = static_cast<int8_t>(value);
     break;
   case MAV_PARAM_TYPE_INT16:
-    raw_value = toRawValue<int16_t>(value);
+    v.int16 = static_cast<int16_t>(value);
     break;
   case MAV_PARAM_TYPE_INT32:
-    raw_value = toRawValue<int32_t>(value);
+    v.int32 = static_cast<int32_t>(value);
     break;
   case MAV_PARAM_TYPE_UINT8:
-    raw_value = toRawValue<uint8_t>(value);
+    v.uint8 = static_cast<uint8_t>(value);
     break;
   case MAV_PARAM_TYPE_UINT16:
-    raw_value = toRawValue<uint16_t>(value);
+    v.uint16 = static_cast<uint16_t>(value);
     break;
   case MAV_PARAM_TYPE_UINT32:
-    raw_value = toRawValue<uint32_t>(value);
+    v.uint32 = static_cast<uint32_t>(value);
     break;
   case MAV_PARAM_TYPE_REAL32:
-    raw_value = toRawValue<float>(value);
+    v.real32 = static_cast<float>(value);
     break;
   }
 
-  return raw_value;
+  return v.raw;
 }
 
 double Param::getCastValue(double value)
@@ -196,25 +179,25 @@ double Param::getCastValue(double value)
   switch (type_)
   {
   case MAV_PARAM_TYPE_INT8:
-    cast_value = toCastValue<int8_t>(value);
+    cast_value = static_cast<double>(static_cast<int8_t>(value));
     break;
   case MAV_PARAM_TYPE_INT16:
-    cast_value = toCastValue<int16_t>(value);
+    cast_value = static_cast<double>(static_cast<int16_t>(value));
     break;
   case MAV_PARAM_TYPE_INT32:
-    cast_value = toCastValue<int32_t>(value);
+    cast_value = static_cast<double>(static_cast<int32_t>(value));
     break;
   case MAV_PARAM_TYPE_UINT8:
-    cast_value = toCastValue<uint8_t>(value);
+    cast_value = static_cast<double>(static_cast<uint8_t>(value));
     break;
   case MAV_PARAM_TYPE_UINT16:
-    cast_value = toCastValue<uint16_t>(value);
+    cast_value = static_cast<double>(static_cast<uint16_t>(value));
     break;
   case MAV_PARAM_TYPE_UINT32:
-    cast_value = toCastValue<uint32_t>(value);
+    cast_value = static_cast<double>(static_cast<uint32_t>(value));
     break;
   case MAV_PARAM_TYPE_REAL32:
-    cast_value = toCastValue<float>(value);
+    cast_value = static_cast<double>(static_cast<float>(value));
     break;
   }
 
