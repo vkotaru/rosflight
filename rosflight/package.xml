@@ -28,6 +28,7 @@
   <depend>tf</depend>
 
   <!-- system libraries -->
+  <depend>async_comm</depend>
   <depend>boost</depend>
   <depend>eigen</depend>
   <depend>yaml-cpp</depend>

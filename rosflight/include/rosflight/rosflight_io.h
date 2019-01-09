@@ -185,7 +185,7 @@ private:
 
   std::string frame_id_;
 
-  mavrosflight::MavlinkComm *mavlink_comm_;
+  mavrosflight::MavlinkComm mavlink_comm_;
   mavrosflight::MavROSflight *mavrosflight_;
 };
 

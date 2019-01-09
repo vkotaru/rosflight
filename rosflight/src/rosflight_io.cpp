@@ -65,6 +65,7 @@ rosflightIO::rosflightIO()
   
   ros::NodeHandle nh_private("~");
 
+  bool opened;
   if (nh_private.param<bool>("udp", false))
   {
     std::string bind_host = nh_private.param<std::string>("bind_host", "localhost");
@@ -74,7 +75,7 @@ rosflightIO::rosflightIO()
 
     ROS_INFO("Connecting over UDP to \"%s:%d\", from \"%s:%d\"", remote_host.c_str(), remote_port, bind_host.c_str(), bind_port);
 
-    mavlink_comm_ = new mavrosflight::MavlinkUDP(bind_host, bind_port, remote_host, remote_port);
+    opened = mavlink_comm_.open_udp(bind_host, bind_port, remote_host, remote_port);
   }
   else
   {
@@ -83,19 +84,16 @@ rosflightIO::rosflightIO()
 
     ROS_INFO("Connecting to serial port \"%s\", at %d baud", port.c_str(), baud_rate);
 
-    mavlink_comm_ = new mavrosflight::MavlinkSerial(port, baud_rate);
+    opened = mavlink_comm_.open_serial(port, baud_rate);
   }
 
-  try
+  if (!opened)
   {
-    mavlink_comm_->open(); //! \todo move this into the MavROSflight constructor
-    mavrosflight_ = new mavrosflight::MavROSflight(*mavlink_comm_);
-  }
-  catch (mavrosflight::SerialException e)
-  {
-    ROS_FATAL("%s", e.what());
+    ROS_FATAL("Failed to open port");
     ros::shutdown();
+    return;
   }
+  mavrosflight_ = new mavrosflight::MavROSflight(mavlink_comm_);
 
   mavrosflight_->comm.register_mavlink_listener(this);
   mavrosflight_->param.register_param_listener(this);
@@ -127,7 +125,6 @@ rosflightIO::rosflightIO()
 rosflightIO::~rosflightIO()
 {
   delete mavrosflight_;
-  delete mavlink_comm_;
 }
 
 void rosflightIO::handle_mavlink_message(const mavlink_message_t &msg)

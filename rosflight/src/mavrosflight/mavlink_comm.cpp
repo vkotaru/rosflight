@@ -36,41 +36,39 @@
 
 #include <rosflight/mavrosflight/mavlink_comm.h>
 
+#include <async_comm/serial.h>
+#include <async_comm/udp.h>
+
 namespace mavrosflight
 {
 
-using boost::asio::serial_port_base;
-
-MavlinkComm::MavlinkComm() :
-  io_service_(),
-  write_in_progress_(false)
-{
-}
+MavlinkComm::MavlinkComm()
+{}
 
 MavlinkComm::~MavlinkComm()
 {
+  close();
 }
 
-void MavlinkComm::open()
+bool MavlinkComm::open_serial(std::string port, unsigned int baud_rate)
 {
-  // open the port
-  do_open();
+  comm_ = std::unique_ptr<async_comm::Comm>(new async_comm::Serial(port, baud_rate));
+  comm_->register_receive_callback(std::bind(&MavlinkComm::serial_callback, this, std::placeholders::_1, std::placeholders::_2));
+  return comm_->init();
+}
 
-  // start reading from the port
-  async_read();
-  io_thread_ = boost::thread(boost::bind(&boost::asio::io_service::run, &this->io_service_));
+bool MavlinkComm::open_udp(std::string bind_host, uint16_t bind_port, std::string remote_host, uint16_t remote_port)
+{
+  comm_ = std::unique_ptr<async_comm::Comm>(new async_comm::UDP(bind_host, bind_port, remote_host, remote_port));
+  comm_->register_receive_callback(std::bind(&MavlinkComm::serial_callback, this, std::placeholders::_1, std::placeholders::_2));
+  return comm_->init();
 }
 
 void MavlinkComm::close()
 {
-  mutex_lock lock(mutex_);
-
-  io_service_.stop();
-  do_close();
-
-  if (io_thread_.joinable())
+  if (comm_)
   {
-    io_thread_.join();
+    comm_->close();
   }
 }
 
@@ -108,106 +106,32 @@ void MavlinkComm::unregister_mavlink_listener(MavlinkListenerInterface * const l
   }
 }
 
-void MavlinkComm::async_read()
+void MavlinkComm::send_message(const mavlink_message_t &msg)
 {
-  if (!is_open()) return;
+  uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
 
-  do_async_read(
-        boost::asio::buffer(read_buf_raw_, MAVLINK_SERIAL_READ_BUF_SIZE),
-        boost::bind(
-          &MavlinkComm::async_read_end,
-          this,
-          boost::asio::placeholders::error,
-          boost::asio::placeholders::bytes_transferred));
+  if (comm_)
+  {
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    comm_->send_bytes(buffer, len);
+  }
 }
 
-void MavlinkComm::async_read_end(const boost::system::error_code &error, size_t bytes_transferred)
+void MavlinkComm::serial_callback(const uint8_t* buf, size_t len)
 {
-  if (!is_open()) return;
+  mavlink_message_t msg;
+  mavlink_status_t status;
 
-  if (error)
+  for (size_t i = 0; i < len; i++)
   {
-    close();
-    return;
-  }
-
-  for (int i = 0; i < bytes_transferred; i++)
-  {
-    if (mavlink_parse_char(MAVLINK_COMM_0, read_buf_raw_[i], &msg_in_, &status_in_))
+    if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &msg, &status))
     {
-      for (int i = 0; i < listeners_.size(); i++)
+      for (size_t j = 0; j < listeners_.size(); j++)
       {
-        listeners_[i]->handle_mavlink_message(msg_in_);
+        listeners_[j]->handle_mavlink_message(msg);
       }
     }
   }
-
-  async_read();
-}
-
-void MavlinkComm::send_message(const mavlink_message_t &msg)
-{
-  WriteBuffer *buffer = new WriteBuffer();
-  buffer->len = mavlink_msg_to_send_buffer(buffer->data, &msg);
-  assert(buffer->len <= MAVLINK_MAX_PACKET_LEN); //! \todo Do something less catastrophic here
-
-  {
-    mutex_lock lock(mutex_);
-    write_queue_.push_back(buffer);
-  }
-
-  async_write(true);
-}
-
-void MavlinkComm::async_write(bool check_write_state)
-{
-  if (check_write_state && write_in_progress_)
-    return;
-
-  mutex_lock lock(mutex_);
-  if (write_queue_.empty())
-    return;
-
-  write_in_progress_ = true;
-  WriteBuffer *buffer = write_queue_.front();
-  do_async_write(
-        boost::asio::buffer(buffer->dpos(), buffer->nbytes()),
-        boost::bind(
-          &MavlinkComm::async_write_end,
-          this,
-          boost::asio::placeholders::error,
-          boost::asio::placeholders::bytes_transferred));
-
-}
-
-void MavlinkComm::async_write_end(const boost::system::error_code &error, std::size_t bytes_transferred)
-{
-  if (error)
-  {
-    std::cerr << error.message() << std::endl;
-    close();
-    return;
-  }
-
-  mutex_lock lock(mutex_);
-  if (write_queue_.empty())
-  {
-    write_in_progress_ = false;
-    return;
-  }
-
-  WriteBuffer *buffer = write_queue_.front();
-  buffer->pos += bytes_transferred;
-  if (buffer->nbytes() == 0)
-  {
-    write_queue_.pop_front();
-    delete buffer;
-  }
-
-  if (write_queue_.empty())
-    write_in_progress_ = false;
-  else
-    async_write(false);
 }
 
 } // namespace mavrosflight

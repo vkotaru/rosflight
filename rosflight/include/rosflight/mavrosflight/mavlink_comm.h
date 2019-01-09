@@ -40,42 +40,56 @@
 #include <rosflight/mavrosflight/mavlink_bridge.h>
 #include <rosflight/mavrosflight/mavlink_listener_interface.h>
 
-#include <boost/asio.hpp>
-#include <boost/thread.hpp>
-#include <boost/function.hpp>
+#define ASYNC_COMM_READ_BUFFER_SIZE MAVLINK_MAX_PACKET_LEN
+#define ASYNC_COMM_WRITE_BUFFER_SIZE MAVLINK_MAX_PACKET_LEN
+#include <async_comm/comm.h>
 
-#include <list>
+#include <functional>
+#include <memory>
 #include <string>
 #include <vector>
-#include <iostream>
 
-#include <stdint.h>
-
-#define MAVLINK_SERIAL_READ_BUF_SIZE 256
+#include <cstdint>
 
 namespace mavrosflight
 {
 
+/**
+ * @brief Sends and receives MAVLink messages over a serial or UDP port
+ *
+ * Provides an API for sending MAVLink messages over the port, and allows the user to register callbacks for when
+ * MAVLink messages are received.
+ */
 class MavlinkComm
 {
 public:
 
-  /**
-   * \brief Instantiates the class and begins communication on the specified serial port
-   * \param port Name of the serial port (e.g. "/dev/ttyUSB0")
-   * \param baud_rate Serial communication baud rate
-   */
   MavlinkComm();
-
-  /**
-   * \brief Stops communication and closes the serial port before the object is destroyed
-   */
   ~MavlinkComm();
 
   /**
-   * \brief Opens the port and begins communication
+   * @brief Opens a serial port for MAVLink communication
+   *
+   * If another port (serial or UDP) was previously open, that port will be closed before the specified port is opened.
+   *
+   * @param port Name of the serial port (e.g. "/dev/ttyUSB0")
+   * @param baud_rate The baud rate for the serial port
+   * @return True if the port was opened successfully
    */
-  void open();
+  bool open_serial(std::string port, unsigned int baud_rate);
+
+  /**
+   * @brief Opens a UDP port for MAVLink communication
+   *
+   * If another port (serial or UDP) was previously open, that port will be closed before the specified port is opened.
+   *
+   * \param bind_host Host where this node is running
+   * \param bind_port Port number for this node
+   * \param remote_host Host where the other node is running
+   * \param remote_port Port number for the other node
+   * @return True if the port was opened successfully
+   */
+  bool open_udp(std::string bind_host, uint16_t bind_port, std::string remote_host, uint16_t remote_port);
 
   /**
    * \brief Stops communication and closes the port
@@ -100,96 +114,18 @@ public:
    */
   void send_message(const mavlink_message_t &msg);
 
-protected:
-  virtual bool is_open() = 0;
-  virtual void do_open() = 0;
-  virtual void do_close() = 0;
-  virtual void do_async_read(const boost::asio::mutable_buffers_1 &buffer, boost::function<void(const boost::system::error_code&, size_t)> handler) = 0;
-  virtual void do_async_write(const boost::asio::const_buffers_1 &buffer, boost::function<void(const boost::system::error_code&, size_t)> handler) = 0;
-
-  boost::asio::io_service io_service_; //!< boost io service provider
-
 private:
 
-  //===========================================================================
-  // definitions
-  //===========================================================================
-
   /**
-   * \brief Struct for buffering the contents of a mavlink message
+   * @brief Callback for asynchronous serial read
+   * @param buf Buffer containing the received data
+   * @param len Number of bytes received
    */
-  struct WriteBuffer
-  {
-    uint8_t data[MAVLINK_MAX_PACKET_LEN];
-    size_t len;
-    size_t pos;
+  void serial_callback(const uint8_t* buf, size_t len);
 
-    WriteBuffer() : len(0), pos(0) {}
-
-    WriteBuffer(const uint8_t * buf, uint16_t len) : len(len), pos(0)
-    {
-      assert(len <= MAVLINK_MAX_PACKET_LEN); //! \todo Do something less catastrophic here
-      memcpy(data, buf, len);
-    }
-
-    const uint8_t * dpos() const { return data + pos; }
-
-    size_t nbytes() const { return len - pos; }
-  };
-
-  /**
-   * \brief Convenience typedef for mutex lock
-   */
-  typedef boost::lock_guard<boost::recursive_mutex> mutex_lock;
-
-  //===========================================================================
-  // methods
-  //===========================================================================
-
-  /**
-   * \brief Initiate an asynchronous read operation
-   */
-  void async_read();
-
-  /**
-   * \brief Handler for end of asynchronous read operation
-   * \param error Error code
-   * \param bytes_transferred Number of bytes received
-   */
-  void async_read_end(const boost::system::error_code& error, size_t bytes_transferred);
-
-  /**
-   * \brief Initialize an asynchronous write operation
-   * \param check_write_state If true, only start another write operation if a write sequence is not already running
-   */
-  void async_write(bool check_write_state);
-
-  /**
-   * \brief Handler for end of asynchronous write operation
-   * \param error Error code
-   * \param bytes_transferred Number of bytes sent
-   */
-  void async_write_end(const boost::system::error_code& error, size_t bytes_transferred);
-
-  //===========================================================================
-  // member variables
-  //===========================================================================
-
+  std::unique_ptr<async_comm::Comm> comm_; //!< asynchronous serial communication handler
   std::vector<MavlinkListenerInterface*> listeners_; //!< listeners for mavlink messages
 
-  boost::thread io_thread_; //!< thread on which the io service runs
-  boost::recursive_mutex mutex_; //!< mutex for threadsafe operation
-
-  uint8_t sysid_;
-  uint8_t compid_;
-
-  uint8_t read_buf_raw_[MAVLINK_SERIAL_READ_BUF_SIZE];
-
-  mavlink_message_t msg_in_;
-  mavlink_status_t status_in_;
-
-  std::list<WriteBuffer*> write_queue_; //!< queue of buffers to be written to the serial port
-  bool write_in_progress_; //!< flag for whether async_write is already running
 };
 
 } // namespace mavrosflight

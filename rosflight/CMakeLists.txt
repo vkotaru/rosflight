@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(rosflight)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 message("CMAKE_C_FLAGS_RELEASE is ${CMAKE_C_FLAGS_RELEASE}")
 
-set(CMAKE_CXX_FLAGS "-std=c++0x")
+set(CMAKE_CXX_FLAGS "-std=c++11")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   tf
 )
+find_package(async_comm REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(Eigen3 REQUIRED)
 
@@ -40,7 +41,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES mavrosflight
   CATKIN_DEPENDS roscpp geometry_msgs rosflight_msgs sensor_msgs std_msgs tf
-  DEPENDS Boost EIGEN3 YAML_CPP tf
+  DEPENDS async_comm Boost EIGEN3 YAML_CPP tf
 )
 
 ###########
@@ -50,6 +51,7 @@ catkin_package(
 include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${async_comm_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
@@ -59,8 +61,6 @@ include_directories(
 add_library(mavrosflight
   src/mavrosflight/mavrosflight.cpp
   src/mavrosflight/mavlink_comm.cpp
-  src/mavrosflight/mavlink_serial.cpp
-  src/mavrosflight/mavlink_udp.cpp
   src/mavrosflight/param_manager.cpp
   src/mavrosflight/param.cpp
   src/mavrosflight/time_manager.cpp
@@ -68,6 +68,7 @@ add_library(mavrosflight
 add_dependencies(mavrosflight ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mavrosflight
   ${catkin_LIBRARIES}
+  ${async_comm_LIBRARIES}
   ${Boost_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
 )
