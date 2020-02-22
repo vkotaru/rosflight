@@ -50,7 +50,8 @@ namespace rosflight_io
 rosflightIO::rosflightIO()
 {
   command_sub_ = nh_.subscribe("command", 1, &rosflightIO::commandCallback, this);
-  attitude_sub_ = nh_.subscribe("attitude_correction", 1, &rosflightIO::attitudeCorrectionCallback, this);
+  aux_command_sub_ = nh_.subscribe("aux_command", 1, &rosflightIO::auxCommandCallback, this);
+  extatt_sub_ = nh_.subscribe("external_attitude", 1, &rosflightIO::externalAttitudeCallback, this);
 
   unsaved_params_pub_ = nh_.advertise<std_msgs::Bool>("unsaved_params", 1, true);
   error_pub_ = nh_.advertise<rosflight_msgs::Error>("rosflight_errors",5,true); // A relatively large queue so all messages get through
@@ -80,7 +81,7 @@ rosflightIO::rosflightIO()
   }
   else
   {
-    std::string port = nh_private.param<std::string>("port", "/dev/ttyUSB0");
+    std::string port = nh_private.param<std::string>("port", "/dev/ttyACM0");
     int baud_rate = nh_private.param<int>("baud_rate", 921600);
 
     ROS_INFO("Connecting to serial port \"%s\", at %d baud", port.c_str(), baud_rate);
@@ -104,11 +105,11 @@ rosflightIO::rosflightIO()
 
   // request the param list
   mavrosflight_->param.request_params();
-  param_timer_ = nh_.createTimer(ros::Duration(1.0), &rosflightIO::paramTimerCallback, this);
+  param_timer_ = nh_.createTimer(ros::Duration(PARAMETER_PERIOD), &rosflightIO::paramTimerCallback, this);
 
   // request version information
   request_version();
-  version_timer_ = nh_.createTimer(ros::Duration(1.0), &rosflightIO::versionTimerCallback, this);
+  version_timer_ = nh_.createTimer(ros::Duration(VERSION_PERIOD), &rosflightIO::versionTimerCallback, this);
 
   // initialize latched "unsaved parameters" message value
   std_msgs::Bool unsaved_msg;
@@ -456,7 +457,7 @@ void rosflightIO::handle_rosflight_output_raw_msg(const mavlink_message_t &msg)
 
   rosflight_msgs::OutputRaw out_msg;
   out_msg.header.stamp = mavrosflight_->time.get_ros_time_us(servo.stamp);
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < 14; i++)
   {
     out_msg.values[i] = servo.values[i];
   }
@@ -861,10 +862,24 @@ void rosflightIO::commandCallback(rosflight_msgs::Command::ConstPtr msg)
   mavrosflight_->comm.send_message(mavlink_msg);
 }
 
-void rosflightIO::attitudeCorrectionCallback(geometry_msgs::Quaternion::ConstPtr msg)
+void rosflightIO::auxCommandCallback(rosflight_msgs::AuxCommand::ConstPtr msg)
+{
+  uint8_t types[14];
+  float values[14];
+  for (int i = 0; i < 14; i++)
+  {
+    types[i] = msg->type_array[i];
+    values[i] = msg->values[i];
+  }
+  mavlink_message_t mavlink_msg;
+  mavlink_msg_rosflight_aux_cmd_pack(1, 50, &mavlink_msg, types, values);
+  mavrosflight_->comm.send_message(mavlink_msg);
+}
+
+void rosflightIO::externalAttitudeCallback(geometry_msgs::Quaternion::ConstPtr msg)
 {
   mavlink_message_t mavlink_msg;
-  mavlink_msg_attitude_correction_pack(1, 50, &mavlink_msg, msg->w, msg->x, msg->y, msg->z);
+  mavlink_msg_external_attitude_pack(1, 50, &mavlink_msg, msg->w, msg->x, msg->y, msg->z);
   mavrosflight_->comm.send_message(mavlink_msg);
 }
 
