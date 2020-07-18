@@ -20,7 +20,8 @@ add_message_files(
   AuxCommand.msg
   Error.msg
   GNSS.msg
-  GNSSRaw.msg
+  GNSSFull.msg
+  BatteryStatus.msg
 )
 
 add_service_files(

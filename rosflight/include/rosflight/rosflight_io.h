@@ -42,53 +42,50 @@
 
 #include <ros/ros.h>
 
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/String.h>
-#include <geometry_msgs/Quaternion.h>
-#include <geometry_msgs/TwistStamped.h>
 
-#include <sensor_msgs/Imu.h>
 #include <sensor_msgs/FluidPressure.h>
+#include <sensor_msgs/Imu.h>
 #include <sensor_msgs/MagneticField.h>
-#include <sensor_msgs/Temperature.h>
-#include <sensor_msgs/Range.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/Range.h>
+#include <sensor_msgs/Temperature.h>
 #include <sensor_msgs/TimeReference.h>
 
 #include <std_srvs/Trigger.h>
 
-#include <rosflight_msgs/Attitude.h>
-#include <rosflight_msgs/Barometer.h>
 #include <rosflight_msgs/Airspeed.h>
-#include <rosflight_msgs/Command.h>
+#include <rosflight_msgs/Attitude.h>
 #include <rosflight_msgs/AuxCommand.h>
+#include <rosflight_msgs/Barometer.h>
+#include <rosflight_msgs/BatteryStatus.h>
+#include <rosflight_msgs/Command.h>
+#include <rosflight_msgs/Error.h>
+#include <rosflight_msgs/GNSS.h>
+#include <rosflight_msgs/GNSSFull.h>
 #include <rosflight_msgs/OutputRaw.h>
 #include <rosflight_msgs/RCRaw.h>
 #include <rosflight_msgs/Status.h>
-#include <rosflight_msgs/Error.h>
-#include <rosflight_msgs/GNSSRaw.h>
-#include <rosflight_msgs/GNSS.h>
-
 
 #include <rosflight_msgs/ParamFile.h>
 #include <rosflight_msgs/ParamGet.h>
 #include <rosflight_msgs/ParamSet.h>
 
-#include <rosflight/mavrosflight/mavrosflight.h>
 #include <rosflight/mavrosflight/mavlink_comm.h>
 #include <rosflight/mavrosflight/mavlink_listener_interface.h>
+#include <rosflight/mavrosflight/mavrosflight.h>
 #include <rosflight/mavrosflight/param_listener_interface.h>
 
 #include <geometry_msgs/Quaternion.h>
 
 namespace rosflight_io
 {
-
-class rosflightIO :
-  public mavrosflight::MavlinkListenerInterface,
-  public mavrosflight::ParamListenerInterface
+class rosflightIO : public mavrosflight::MavlinkListenerInterface, public mavrosflight::ParamListenerInterface
 {
 public:
   rosflightIO();
@@ -100,12 +97,11 @@ public:
   virtual void on_param_value_updated(std::string name, double value);
   virtual void on_params_saved_change(bool unsaved_changes);
 
-  static constexpr float HEARTBEAT_PERIOD = 1; //Time between heartbeat messages
-  static constexpr float VERSION_PERIOD = 10; //Time between version requests
-  static constexpr float PARAMETER_PERIOD = 3; //Time between parameter requests
+  static constexpr float HEARTBEAT_PERIOD = 1; // Time between heartbeat messages
+  static constexpr float VERSION_PERIOD = 10;  // Time between version requests
+  static constexpr float PARAMETER_PERIOD = 3; // Time between parameter requests
 
 private:
-
   // handle mavlink messages
   void handle_heartbeat_msg(const mavlink_message_t &msg);
   void handle_status_msg(const mavlink_message_t &msg);
@@ -119,13 +115,15 @@ private:
   void handle_small_baro_msg(const mavlink_message_t &msg);
   void handle_small_mag_msg(const mavlink_message_t &msg);
   void handle_rosflight_gnss_msg(const mavlink_message_t &msg);
-  void handle_rosflight_gnss_raw_msg(const mavlink_message_t &msg);
+  void handle_rosflight_gnss_full_msg(const mavlink_message_t &msg);
   void handle_named_value_int_msg(const mavlink_message_t &msg);
   void handle_named_value_float_msg(const mavlink_message_t &msg);
   void handle_named_command_struct_msg(const mavlink_message_t &msg);
   void handle_small_range_msg(const mavlink_message_t &msg);
+  std::string get_major_minor_version(const std::string &version);
   void handle_version_msg(const mavlink_message_t &msg);
   void handle_hard_error_msg(const mavlink_message_t &msg);
+  void handle_battery_status_msg(const mavlink_message_t &msg);
 
   // ROS message callbacks
   void commandCallback(rosflight_msgs::Command::ConstPtr msg);
@@ -142,7 +140,7 @@ private:
   bool calibrateRCTrimSrvCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool calibrateBaroSrvCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool calibrateAirspeedSrvCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool rebootSrvCallback(std_srvs::Trigger::Request & req, std_srvs::Trigger::Response &res);
+  bool rebootSrvCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool rebootToBootloaderSrvCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   // timer callbacks
@@ -155,11 +153,11 @@ private:
   void send_heartbeat();
   void check_error_code(uint8_t current, uint8_t previous, ROSFLIGHT_ERROR_CODE code, std::string name);
 
-  template<class T> inline T saturate(T value, T min, T max)
+  template <class T>
+  inline T saturate(T value, T min, T max)
   {
     return value < min ? min : (value > max ? max : value);
   }
-
 
   ros::NodeHandle nh_;
 
@@ -177,7 +175,7 @@ private:
   ros::Publisher baro_pub_;
   ros::Publisher sonar_pub_;
   ros::Publisher gnss_pub_;
-  ros::Publisher gnss_raw_pub_;
+  ros::Publisher gnss_full_pub_;
   ros::Publisher nav_sat_fix_pub_;
   ros::Publisher twist_stamped_pub_;
   ros::Publisher time_reference_pub_;
@@ -188,6 +186,7 @@ private:
   ros::Publisher version_pub_;
   ros::Publisher lidar_pub_;
   ros::Publisher error_pub_;
+  ros::Publisher battery_status_pub_;
   std::map<std::string, ros::Publisher> named_value_int_pubs_;
   std::map<std::string, ros::Publisher> named_value_float_pubs_;
   std::map<std::string, ros::Publisher> named_command_struct_pubs_;
