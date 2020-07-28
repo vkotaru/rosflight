@@ -28,4 +28,13 @@
     <arg name="param_file" value="$(find rosflight_sim)/params/multirotor.yaml"/>
   </include>
 
+  <node name="rosflight_io" pkg="rosflight" type="rosflight_io" output="screen">
+    <param name="udp" value="true"/>
+  </node>
+
+   <!-- <node name="rc_joy" pkg="rosflight_joy" type="rc_joy" output="screen">
+    <remap from="RC" to="multirotor/RC"/>
+  </node> -->
+
+
 </launch>
