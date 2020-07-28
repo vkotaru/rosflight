@@ -104,6 +104,14 @@ target_link_libraries(calibrate_mag
   ${Boost_LIBRARIES}
 )
 
+
+add_executable(rosflight_command_node src/rosflight_command.cpp)
+add_dependencies(rosflight_command_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(rosflight_command_node
+  ${catkin_LIBRARIES}
+)
+
+
 #############
 ## Install ##
 #############
